@@ -1,7 +1,14 @@
-﻿import express from "express";
-import dotenv from "dotenv";
+﻿import dotenv from "dotenv";
+dotenv.config(); // Must be called before other imports that use env vars
 
-dotenv.config();
+import express from "express";
+import { initDatabase } from "./database/db.js";
+import { authenticateToken, optionalAuth } from "./middleware/auth.js";
+import authRoutes from "./routes/auth.js";
+import fieldRoutes from "./routes/fields.js";
+import sensorRoutes from "./routes/sensors.js";
+import dashboardRoutes from "./routes/dashboard.js";
+import { startPollingScheduler } from "./services/scheduler.js";
 
 const app = express();
 const PORT = Number(process.env.PORT || 8787);
@@ -10,9 +17,11 @@ const MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
 const CORS_ORIGIN = process.env.CORS_ORIGIN || "*";
 
+// Initialize database
+initDatabase();
+
 if (!API_KEY) {
-  console.error("Missing GEMINI_API_KEY in environment.");
-  process.exit(1);
+  console.warn("⚠️  Warning: GEMINI_API_KEY not set. AI features will not work.");
 }
 
 if (typeof fetch !== "function") {
@@ -24,8 +33,8 @@ app.use(express.json({ limit: "16mb" }));
 
 app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Origin", CORS_ORIGIN);
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
   if (req.method === "OPTIONS") {
     res.status(204).end();
     return;
@@ -33,6 +42,27 @@ app.use((req, res, next) => {
   next();
 });
 
+// Health check
+app.get("/api/health", (req, res) => {
+  res.json({ 
+    ok: true,
+    services: {
+      database: true,
+      gemini: !!API_KEY,
+      agromonitoring: !!process.env.AGRO_API_KEY
+    }
+  });
+});
+
+// Authentication routes (public)
+app.use("/api/auth", authRoutes);
+
+// Protected routes
+app.use("/api/fields", authenticateToken, fieldRoutes);
+app.use("/api/sensors", authenticateToken, sensorRoutes);
+app.use("/api/dashboard", authenticateToken, dashboardRoutes);
+
+// AI Widget routes (existing - now with optional auth)
 app.get("/api/agricoole/health", (req, res) => {
   res.json({ ok: true });
 });
@@ -315,5 +345,20 @@ app.post("/api/agricoole/chat", async (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Agricoole server running on port ${PORT}`);
+  console.log("\n🚀 Agricoole Server Started");
+  console.log("================================");
+  console.log(`📍 Port: ${PORT}`);
+  console.log(`🔗 Health: http://localhost:${PORT}/api/health`);
+  console.log(`🔐 Auth: http://localhost:${PORT}/api/auth/*`);
+  console.log(`🌾 Fields: http://localhost:${PORT}/api/fields`);
+  console.log(`📊 Dashboard: http://localhost:${PORT}/api/dashboard/:fieldId`);
+  console.log(`🤖 AI Widget: http://localhost:${PORT}/api/agricoole/*`);
+  console.log("================================\n");
+
+  // Start data polling scheduler
+  if (process.env.AGRO_API_KEY) {
+    startPollingScheduler();
+  } else {
+    console.warn("⚠️  AGRO_API_KEY not set. Data polling disabled.");
+  }
 });
