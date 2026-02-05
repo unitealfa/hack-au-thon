@@ -23,7 +23,7 @@ export function AppLayout() {
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container flex h-16 items-center justify-between">
           <Link to="/dashboard" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-            <img src="/logo.png" alt="Agricoole" className="h-12 w-auto object-contain" />
+            <img src="/logo.png" alt="Agricoole" className="h-45 w-auto object-contain" />
           </Link>
 
           <nav className="flex items-center gap-2">

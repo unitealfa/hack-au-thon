@@ -1,4 +1,4 @@
-(function () {
+﻿(function () {
   "use strict";
 
   const DEFAULT_CONFIG = {
@@ -793,7 +793,7 @@
           <img class="agricoole-photo-preview" alt="Preview" />
         </div>
         <div class="agricoole-actions">
-          <button type="button" class="agricoole-new-plant" title="Épingler une image comme contexte">${ICONS.camera}</button>
+          <button type="button" class="agricoole-new-plant" title="Ã‰pingler une image comme contexte">${ICONS.camera}</button>
         </div>
         <div class="agricoole-pin-indicator" style="display:none;">
           <img class="agricoole-pin-preview" alt="Pinned" />
@@ -1195,7 +1195,11 @@
     function summarizeHistory(session) {
       if (!session) return "";
       const tail = session.history.slice(-6);
-      return tail.map((m) => `${m.role.toUpperCase()}: ${m.text}`).join("\n");
+      return tail.map((m) => {
+        const label = m.role.toUpperCase();
+        if (m.type === "image") return `${label}: [IMAGE]`;
+        return `${label}: ${m.text}`;
+      }).join("\n");
     }
 
     function openPanel() {
@@ -1477,8 +1481,12 @@
       };
       runtime.pendingImageBySession[activeSession.id] = activeSession.pinnedImage;
       
+      // Show pinned image in discussion
+      addMessage(activeSession, "user", "", null, { type: "image", dataUrl: previewUrl });
+      
+      
       // Add notification to chat
-      addMessage(activeSession, "assistant", "📌 Image épinglée comme contexte. Que voulez-vous savoir ?");
+      addMessage(activeSession, "assistant", "ðŸ“Œ Image Ã©pinglÃ©e comme contexte. Que voulez-vous savoir ?");
       saveSessions(sessions);
       renderAll();
 

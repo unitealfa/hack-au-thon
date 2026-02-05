@@ -12,7 +12,9 @@ const SALT_ROUNDS = 10;
  */
 router.post("/register", async (req, res) => {
   try {
-    const { email, password, name, farmName } = req.body;
+    const { email, password } = req.body;
+    const name = req.body.name || req.body.full_name;
+    const farmName = req.body.farmName || req.body.farm_name;
 
     // Validation
     if (!email || !password || !name) {
@@ -32,6 +34,7 @@ router.post("/register", async (req, res) => {
     // Hash password and create user
     const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
     const userId = userDb.create(email, passwordHash, name, farmName || null);
+    const user = userDb.findById(userId);
 
     // Generate token
     const token = generateToken(userId, email);
@@ -43,8 +46,9 @@ router.post("/register", async (req, res) => {
       user: {
         id: userId,
         email,
-        name,
-        farmName
+        full_name: name,
+        farm_name: farmName || null,
+        created_at: user?.created_at || null
       }
     });
   } catch (error) {
@@ -87,8 +91,9 @@ router.post("/login", async (req, res) => {
       user: {
         id: user.id,
         email: user.email,
-        name: user.name,
-        farmName: user.farm_name
+        full_name: user.name,
+        farm_name: user.farm_name,
+        created_at: user.created_at || null
       }
     });
   } catch (error) {
@@ -115,9 +120,9 @@ router.get("/me", authenticateToken, async (req, res) => {
       user: {
         id: user.id,
         email: user.email,
-        name: user.name,
-        farmName: user.farm_name,
-        createdAt: user.created_at
+        full_name: user.name,
+        farm_name: user.farm_name,
+        created_at: user.created_at
       }
     });
   } catch (error) {

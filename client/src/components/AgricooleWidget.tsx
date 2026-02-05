@@ -307,7 +307,11 @@ export function AgricooleWidget() {
   
   const summarizeHistory = (session: Session) => {
     const tail = session.history.slice(-6);
-    return tail.map(m => `${m.role.toUpperCase()}: ${m.text}`).join('\n');
+    return tail.map(m => {
+      const label = m.role.toUpperCase();
+      if (m.type === 'image') return `${label}: [IMAGE]`;
+      return `${label}: ${m.text}`;
+    }).join('\n');
   };
   
   // Send analyze
@@ -470,6 +474,9 @@ export function AgricooleWidget() {
       
       // Store as pinned image on session
       activeSession.pinnedImage = { mime, data: base64, preview: previewUrl };
+      
+      // Show pinned image in discussion
+      addMessage(activeSession, 'user', '', null, { type: 'image', dataUrl: previewUrl });
       
       // Add notification about pinned image
       addMessage(activeSession, 'assistant', '📌 Image épinglée comme contexte. Que voulez-vous savoir ?');
