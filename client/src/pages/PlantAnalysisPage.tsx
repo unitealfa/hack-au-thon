@@ -3,16 +3,18 @@ import { api } from '@/lib/api';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Camera, Upload, MessageSquare, Loader2, Sparkles } from 'lucide-react';
+import { Camera, Upload, MessageSquare, Loader2, Sparkles, Pin, X, Paperclip } from 'lucide-react';
 
 export function PlantAnalysisPage() {
   const [image, setImage] = useState<string | null>(null);
+  const [pinnedImage, setPinnedImage] = useState<string | null>(null);
   const [analysis, setAnalysis] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [chatMessages, setChatMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([]);
   const [chatInput, setChatInput] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const chatImageInputRef = useRef<HTMLInputElement>(null);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -23,9 +25,25 @@ export function PlantAnalysisPage() {
       const base64 = reader.result as string;
       setImage(base64);
       setAnalysis('');
-      setChatMessages([]);
     };
     reader.readAsDataURL(file);
+  };
+
+  const handlePinImage = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64 = reader.result as string;
+      setPinnedImage(base64);
+      setChatMessages(prev => [...prev, { role: 'assistant', content: '📌 Image épinglée comme contexte. Que voulez-vous savoir ?' }]);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleUnpinImage = () => {
+    setPinnedImage(null);
   };
 
   const handleAnalyze = async () => {
@@ -52,7 +70,9 @@ export function PlantAnalysisPage() {
 
     try {
       setChatLoading(true);
-      const base64 = image ? image.split(',')[1] : undefined;
+      // Use pinned image as context if available, otherwise use the analysis image
+      const contextImage = pinnedImage || image;
+      const base64 = contextImage ? contextImage.split(',')[1] : undefined;
       const result = await api.chatAboutPlant(userMessage, base64);
       setChatMessages((prev) => [...prev, { role: 'assistant', content: result.response }]);
     } catch (err) {
@@ -189,15 +209,27 @@ export function PlantAnalysisPage() {
             <MessageSquare className="h-5 w-5" />
             Ask About Your Plant
           </CardTitle>
-          <CardDescription>Chat with AI to learn more about plant care</CardDescription>
+          <CardDescription>Posez une question directement ou épinglez une image pour du contexte</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Pinned Image Indicator */}
+          {pinnedImage && (
+            <div className="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+              <Pin className="h-4 w-4 text-green-600" />
+              <img src={pinnedImage} alt="Pinned" className="h-10 w-10 rounded object-cover" />
+              <span className="text-sm text-green-700 dark:text-green-300 flex-1">Image épinglée comme contexte</span>
+              <Button variant="ghost" size="sm" onClick={handleUnpinImage} className="text-red-500 hover:text-red-600 hover:bg-red-50">
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+
           {/* Chat Messages */}
           <div className="border rounded-lg p-4 h-64 overflow-y-auto space-y-3">
             {chatMessages.length === 0 ? (
               <div className="text-center text-muted-foreground py-12">
                 <MessageSquare className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p className="text-sm">Ask questions about plant care, watering, soil, etc.</p>
+                <p className="text-sm">Posez une question ou épinglez une image pour du contexte</p>
               </div>
             ) : (
               chatMessages.map((msg, idx) => (
@@ -228,8 +260,23 @@ export function PlantAnalysisPage() {
 
           {/* Chat Input */}
           <div className="flex gap-2">
+            <input
+              ref={chatImageInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handlePinImage}
+              className="hidden"
+            />
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => chatImageInputRef.current?.click()}
+              title="Épingler une image comme contexte"
+            >
+              <Paperclip className="h-4 w-4" />
+            </Button>
             <Input
-              placeholder="Ask a question about your plant..."
+              placeholder="Posez une question..."
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && handleChat()}

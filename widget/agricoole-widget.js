@@ -1,4 +1,4 @@
-﻿(function () {
+(function () {
   "use strict";
 
   const DEFAULT_CONFIG = {
@@ -10,11 +10,11 @@
     maxHistory: 50,
     maxImageMb: 6,
     maxImageWidth: 720,
-    primaryColor: "#10b981",
-    accentColor: "#f59e0b",
-    bgColor: "#0f172a",
-    panelBg: "#1e293b",
-    textColor: "#f1f5f9"
+    primaryColor: "#3D8B40",
+    accentColor: "#8BC34A",
+    bgColor: "#0a1f0c",
+    panelBg: "#122415",
+    textColor: "#e8f5e9"
   };
 
   const STORAGE_KEY = "agricoole_widget_sessions_v1";
@@ -70,8 +70,9 @@
     return {
       id,
       title: title || "Session " + new Date().toISOString().slice(0, 10),
-      state: "PHOTO_GATE",
+      state: "CHAT",
       activePlantContext: "",
+      pinnedImage: null,
       history: [],
       lastUpdated: Date.now()
     };
@@ -511,6 +512,42 @@
   width: 16px;
   height: 16px;
 }
+#${ROOT_ID} .agricoole-pin-indicator {
+  padding: 8px 16px;
+  display: none;
+  align-items: center;
+  gap: 8px;
+  background: rgba(16, 185, 129, 0.1);
+  border-top: 1px solid var(--ag-border);
+}
+#${ROOT_ID} .agricoole-pin-preview {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+#${ROOT_ID} .agricoole-unpin-btn {
+  margin-left: auto;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+#${ROOT_ID} .agricoole-unpin-btn:hover {
+  background: #ef4444;
+  color: #fff;
+}
+#${ROOT_ID} .agricoole-unpin-btn svg {
+  width: 14px;
+  height: 14px;
+}
 #${ROOT_ID} .agricoole-input {
   padding: 12px 16px 16px;
   display: none;
@@ -756,10 +793,14 @@
           <img class="agricoole-photo-preview" alt="Preview" />
         </div>
         <div class="agricoole-actions">
-          <button type="button" class="agricoole-new-plant">${ICONS.leaf}${ICONS.plus}</button>
+          <button type="button" class="agricoole-new-plant" title="Épingler une image comme contexte">${ICONS.camera}</button>
+        </div>
+        <div class="agricoole-pin-indicator" style="display:none;">
+          <img class="agricoole-pin-preview" alt="Pinned" />
+          <button type="button" class="agricoole-unpin-btn" title="Retirer l'image">${ICONS.close}</button>
         </div>
         <div class="agricoole-input">
-          <label class="agricoole-input-photo">
+          <label class="agricoole-input-photo" title="Joindre une image">
             <input class="agricoole-chat-photo-input" type="file" accept="image/*" capture="environment" />
             ${ICONS.paperclip}
           </label>
@@ -894,10 +935,10 @@
       sessions.push(activeSession);
       activeSessionId = activeSession.id;
       setActiveSessionId(activeSession.id);
-      ensurePhotoGateMessage(activeSession);
+      ensureWelcomeMessage(activeSession);
       saveSessions(sessions);
     } else if (activeSession) {
-      ensurePhotoGateMessage(activeSession);
+      ensureWelcomeMessage(activeSession);
       saveSessions(sessions);
     }
 
@@ -975,7 +1016,7 @@
     function createAndActivateSession(title) {
       const name = title || `Chat ${sessions.length + 1}`;
       const s = newSession(name);
-      ensurePhotoGateMessage(s);
+      ensureWelcomeMessage(s);
       sessions.push(s);
       saveSessions(sessions);
       activeSession = s;
@@ -1004,25 +1045,21 @@
           activeSession = next;
           activeSessionId = next.id;
           setActiveSessionId(next.id);
-          ensurePhotoGateMessage(activeSession);
+          ensureWelcomeMessage(activeSession);
         } else {
           // Create new session if all deleted
           activeSession = newSession("Chat 1");
           sessions.push(activeSession);
           activeSessionId = activeSession.id;
           setActiveSessionId(activeSession.id);
-          ensurePhotoGateMessage(activeSession);
+          ensureWelcomeMessage(activeSession);
         }
       }
       saveSessions(sessions);
     }
 
-    function ensurePhotoGateMessage(session) {
-      if (session.state !== "PHOTO_GATE") return;
-      const hasHint = session.history.some((m) => m.tag === "photo_gate_hint");
-      if (!hasHint) {
-        addMessage(session, "assistant", "Envoie une photo pour commencer.", "photo_gate_hint");
-      }
+    function ensureWelcomeMessage(session) {
+      // No welcome message - start with empty conversation
     }
 
     function addMessage(session, role, text, tag, meta) {
@@ -1113,15 +1150,29 @@
       }
     }
 
+    function renderPinnedImage() {
+      // Show pinned image indicator in the input area if there's context
+      const pinIndicator = root.querySelector(".agricoole-pin-indicator");
+      if (!pinIndicator) return;
+      if (activeSession && activeSession.pinnedImage) {
+        pinIndicator.style.display = "flex";
+        const img = pinIndicator.querySelector("img");
+        if (img) img.src = activeSession.pinnedImage.preview;
+      } else {
+        pinIndicator.style.display = "none";
+      }
+    }
+
     function renderState() {
-      const inChat = !!activeSession && activeSession.state === "CHAT";
+      const hasSession = !!activeSession;
       const pending = activeSession ? runtime.pendingImageBySession[activeSession.id] : null;
       const showAnalyze = !config.autoAnalyze && !!pending;
-      elements.photoSection.style.display = inChat ? "none" : "flex";
-      elements.actions.style.display = inChat ? "flex" : "none";
-      elements.inputWrap.style.display = inChat ? "flex" : "none";
-      elements.textInput.disabled = runtime.loading || !inChat;
-      elements.sendBtn.disabled = runtime.loading || !inChat;
+      // Always hide the old photo gate section - use chat input with pin instead
+      elements.photoSection.style.display = "none";
+      elements.actions.style.display = hasSession ? "flex" : "none";
+      elements.inputWrap.style.display = hasSession ? "flex" : "none";
+      elements.textInput.disabled = runtime.loading || !hasSession;
+      elements.sendBtn.disabled = runtime.loading || !hasSession;
       elements.photoBtn.style.display = showAnalyze ? "inline-flex" : "none";
       elements.photoBtn.disabled = runtime.loading || !showAnalyze;
       elements.photoInput.disabled = runtime.loading;
@@ -1133,6 +1184,7 @@
         root.classList.remove("agricoole-loading");
       }
       renderPhotoPreview();
+      renderPinnedImage();
     }
 
     function renderAll() {
@@ -1216,7 +1268,7 @@
       }
       const pending = runtime.pendingImageBySession[activeSession.id];
       if (!pending) {
-        ensurePhotoGateMessage(activeSession);
+        ensureWelcomeMessage(activeSession);
         renderAll();
         return;
       }
@@ -1252,13 +1304,12 @@
     }
 
     async function sendChat(message) {
-      if (!activeSession || activeSession.state !== "CHAT") {
-        if (activeSession) {
-          ensurePhotoGateMessage(activeSession);
-        }
+      if (!activeSession) {
         renderAll();
         return;
       }
+      // Ensure session is in CHAT state
+      activeSession.state = "CHAT";
       addMessage(activeSession, "user", message);
       runtime.loadingLabel = "Envoi...";
       setLoading(true);
@@ -1306,7 +1357,7 @@
       if (item) {
         setActiveSessionById(item.dataset.sessionId);
         if (activeSession) {
-          ensurePhotoGateMessage(activeSession);
+          ensureWelcomeMessage(activeSession);
         }
         elements.drawer.classList.remove("open");
         renderAll();
@@ -1315,13 +1366,22 @@
 
     elements.newPlantBtn.addEventListener("click", () => {
       if (!activeSession) return;
-      activeSession.state = "PHOTO_GATE";
-      activeSession.activePlantContext = "";
-      runtime.pendingImageBySession[activeSession.id] = null;
-      ensurePhotoGateMessage(activeSession);
-      saveSessions(sessions);
-      renderAll();
+      // Trigger file picker to pin an image as context
+      elements.chatPhotoInput.click();
     });
+
+    // Unpin image button handler
+    const unpinBtn = root.querySelector(".agricoole-unpin-btn");
+    if (unpinBtn) {
+      unpinBtn.addEventListener("click", () => {
+        if (!activeSession) return;
+        activeSession.pinnedImage = null;
+        activeSession.activePlantContext = "";
+        runtime.pendingImageBySession[activeSession.id] = null;
+        saveSessions(sessions);
+        renderAll();
+      });
+    }
 
     elements.photoInput.addEventListener("change", async (event) => {
       const file = event.target.files && event.target.files[0];
@@ -1378,7 +1438,7 @@
       }
     });
 
-    // Chat photo input handler - allows sending photos in CHAT state
+    // Chat photo input handler - pin image as context
     elements.chatPhotoInput.addEventListener("change", async (event) => {
       const file = event.target.files && event.target.files[0];
       if (!file || !activeSession) return;
@@ -1403,19 +1463,20 @@
       const mimeMatch = /data:(.*?);base64/.exec(meta);
       const mime = file.type || (mimeMatch ? mimeMatch[1] : "image/jpeg");
 
-      // Store pending image and show in chat
-      runtime.pendingImageBySession[activeSession.id] = {
+      // Store as pinned image for context
+      activeSession.pinnedImage = {
         mime,
         data: base64,
         preview: previewUrl
       };
-      addMessage(activeSession, "user", "", null, {
-        type: "image",
-        dataUrl: previewUrl
-      });
+      runtime.pendingImageBySession[activeSession.id] = activeSession.pinnedImage;
+      
+      // Add notification to chat
+      addMessage(activeSession, "assistant", "📌 Image épinglée comme contexte. Que voulez-vous savoir ?");
+      saveSessions(sessions);
       renderAll();
 
-      // Auto analyze the image
+      // Analyze the pinned image to set context
       sendAnalyze();
     });
 

@@ -6,7 +6,8 @@ import {
   fetchCurrentWeather, 
   fetchWeatherForecast,
   fetchAccumulatedTemperature,
-  fetchAccumulatedPrecipitation 
+  fetchAccumulatedPrecipitation,
+  fetchSatelliteImages
 } from "../services/agromonitoring.js";
 
 const router = express.Router();
@@ -420,5 +421,41 @@ function getCropMaturityEstimate(cropType, currentGDD) {
     estimatedDaysToHarvest: progress >= 100 ? 0 : null // Would need more data to estimate
   };
 }
+
+/**
+ * GET /api/dashboard/:fieldId/satellite-images
+ * Get satellite imagery for a field
+ */
+router.get("/:fieldId/satellite-images", async (req, res) => {
+  try {
+    const { fieldId } = req.params;
+    const days = parseInt(req.query.days) || 30;
+
+    const field = fieldDb.findById(fieldId);
+    if (!field) {
+      return res.status(404).json({ error: "Field not found" });
+    }
+
+    if (field.user_id !== req.user.userId) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+
+    if (!field.polygon_id) {
+      return res.status(400).json({ error: "Field has no polygon linked" });
+    }
+
+    const images = await fetchSatelliteImages(field.polygon_id, days);
+
+    res.json({
+      success: true,
+      field: { id: field.id, name: field.name },
+      images,
+      count: images.length
+    });
+  } catch (error) {
+    console.error("Error fetching satellite images:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
 
 export default router;

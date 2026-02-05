@@ -6,6 +6,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FieldAnalytics } from '@/components/FieldAnalytics';
+import { SatelliteImagery } from '@/components/SatelliteImagery';
 import { 
   Thermometer, 
   Droplets, 
@@ -17,7 +18,8 @@ import {
   Activity,
   Clock,
   Gauge,
-  Leaf
+  Leaf,
+  Satellite
 } from 'lucide-react';
 
 const sensorIcons: Record<string, typeof Thermometer> = {
@@ -243,6 +245,10 @@ export function DashboardPage() {
             <Leaf className="h-4 w-4" />
             Field Analytics
           </TabsTrigger>
+          <TabsTrigger value="satellite" className="flex items-center gap-2">
+            <Satellite className="h-4 w-4" />
+            Satellite Imagery
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="sensors" className="space-y-6">
@@ -320,6 +326,13 @@ export function DashboardPage() {
             fieldId={dashboard.field.id}
             fieldName={dashboard.field.name}
             polygonId={dashboard.field.polygonId}
+          />
+        </TabsContent>
+
+        <TabsContent value="satellite">
+          <SatelliteImagery 
+            fieldId={dashboard.field.id}
+            days={30}
           />
         </TabsContent>
       </Tabs>

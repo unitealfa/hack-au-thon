@@ -204,6 +204,29 @@ export interface GDDData {
   maturityEstimate: MaturityEstimate;
 }
 
+// Satellite Imagery Types
+export interface SatelliteImage {
+  date: string;
+  timestamp: number;
+  satellite: string;
+  cloudCoverage: number;
+  dataCoverage: number;
+  images: {
+    truecolor: string;
+    falsecolor: string;
+    ndvi: string;
+    evi: string;
+    ndwi: string;
+  };
+  tiles: Record<string, string>;
+  stats: Record<string, string>;
+}
+
+export interface SatelliteImagesData {
+  images: SatelliteImage[];
+  count: number;
+}
+
 // Combined Analytics
 export interface FieldAnalytics {
   ndvi: NDVIDataPoint[] | null;
@@ -403,6 +426,15 @@ class ApiClient {
     }>(`/api/dashboard/${fieldId}/gdd?days=${days}&baseTemp=${baseTemp}`);
   }
 
+  async getSatelliteImages(fieldId: number, days: number = 30) {
+    return this.request<{
+      success: boolean;
+      field: { id: number; name: string };
+      images: SatelliteImage[];
+      count: number;
+    }>(`/api/dashboard/${fieldId}/satellite-images?days=${days}`);
+  }
+
   // Agricoole AI endpoints
   async analyzeImage(imageBase64: string) {
     return this.request<{ analysis: string }>('/api/agricoole/analyze', {
@@ -412,10 +444,19 @@ class ApiClient {
   }
 
   async chatAboutPlant(message: string, imageBase64?: string) {
-    return this.request<{ response: string }>('/api/agricoole/chat', {
+    const body: Record<string, unknown> = {
+      user_message: message,
+      state: 'CHAT',
+      image_present: !!imageBase64,
+    };
+    if (imageBase64) {
+      body.image = { data: imageBase64, mimeType: 'image/jpeg' };
+    }
+    const result = await this.request<{ ok: boolean; assistant_message?: string; response?: string }>('/api/agricoole/chat', {
       method: 'POST',
-      body: JSON.stringify({ message, image: imageBase64 }),
+      body: JSON.stringify(body),
     });
+    return { response: result.assistant_message || result.response || '' };
   }
 }
 
