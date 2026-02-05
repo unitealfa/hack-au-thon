@@ -1,0 +1,27 @@
+Failed to load resource: net::ERR_CONNECTION_REFUSED
+auth.tsx:24  Failed to load user: TypeError: Failed to fetch
+    at ApiClient.request (api.ts:277:28)
+    at ApiClient.getCurrentUser (api.ts:310:17)
+    at loadUser (auth.tsx:21:32)
+    at auth.tsx [31](https://cdn.discordapp.com/emojis/1434152347570798652.webp?size=48&name=31&lossless=true) 5
+    at Object.react_stack_bottom_frame (react-dom-client.development.js:25989:20)
+    at runWithFiberInDEV (react-dom-client.development.js:871:30)
+    at commitHookEffectListMount (react-dom-client.development.js:13249:29)
+    at commitHookPassiveMountEffects (react-dom-client.development.js:13336:11)
+    at commitPassiveMountOnFiber (react-dom-client.development.js:15484:13)
+    at recursivelyTraversePassiveMountEffects (react-dom-client.development.js:15439:11)
+loadUser @ auth.tsx:24
+localhost:8787/api/auth/me:1   Failed to load resource: net::ERR_CONNECTION_REFUSED
+auth.tsx:24  Failed to load user: TypeError: Failed to fetch
+    at ApiClient.request (api.ts:277:28)
+    at ApiClient.getCurrentUser (api.ts:310:17)
+    at loadUser (auth.tsx:21:32)
+    at auth.tsx [31](https://cdn.discordapp.com/emojis/1434152347570798652.webp?size=48&name=31&lossless=true) 5
+    at Object.react_stack_bottom_frame (react-dom-client.development.js:25989:20)
+    at runWithFiberInDEV (react-dom-client.development.js:871:30)
+    at commitHookEffectListMount (react-dom-client.development.js:13249:29)
+    at commitHookPassiveMountEffects (react-dom-client.development.js:13336:11)
+    at reconnectPassiveEffects (react-dom-client.development.js:15832:11)
+    at recursivelyTraverseReconnectPassiveEffects (react-dom-client.development.js:15784:9)
+loadUser @ auth.tsx:24
+localhost:8787/api/auth/login:1   Failed to load resource: net::ERR_CONNECTION_REFUSED

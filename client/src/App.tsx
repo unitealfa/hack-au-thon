@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/lib/auth';
 import { LoginPage } from '@/pages/LoginPage';
 import { RegisterPage } from '@/pages/RegisterPage';
@@ -50,6 +50,17 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function WidgetGate() {
+  const { user, loading } = useAuth();
+  const location = useLocation();
+
+  if (loading) return null;
+  if (!user) return null;
+  if (location.pathname === '/login' || location.pathname === '/register') return null;
+
+  return <AgricooleWidget />;
+}
+
 function AppRoutes() {
   return (
     <Routes>
@@ -83,7 +94,7 @@ function App() {
     <BrowserRouter>
       <AuthProvider>
         <AppRoutes />
-        <AgricooleWidget />
+        <WidgetGate />
       </AuthProvider>
     </BrowserRouter>
   );

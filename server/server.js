@@ -238,6 +238,70 @@ function safeParseJson(text) {
   }
 }
 
+function extractJsonStringField(text, key) {
+  if (!text) return null;
+  const needle = `"${key}"`;
+  const idx = text.indexOf(needle);
+  if (idx === -1) return null;
+  let i = text.indexOf(":", idx + needle.length);
+  if (i === -1) return null;
+  i += 1;
+  while (i < text.length && /\s/.test(text[i])) i += 1;
+  if (text[i] !== "\"") return null;
+  i += 1;
+  let out = "";
+  let escaped = false;
+  for (; i < text.length; i += 1) {
+    const ch = text[i];
+    if (escaped) {
+      if (ch === "n") out += "\n";
+      else if (ch === "r") out += "\r";
+      else if (ch === "t") out += "\t";
+      else if (ch === "\"") out += "\"";
+      else if (ch === "\\") out += "\\";
+      else out += ch;
+      escaped = false;
+      continue;
+    }
+    if (ch === "\\") {
+      escaped = true;
+      continue;
+    }
+    if (ch === "\"") break;
+    out += ch;
+  }
+  return out.trim() || null;
+}
+
+function extractJsonPlantOkField(text) {
+  if (!text) return null;
+  const match = text.match(/"plant_ok"\s*:\s*(true|false|"unknown")/i);
+  if (!match) return null;
+  const raw = match[1].toLowerCase();
+  if (raw === "true") return true;
+  if (raw === "false") return false;
+  return "unknown";
+}
+
+function recoverFromRawJson(text, meta) {
+  if (!text) return null;
+  const assistantMessage = extractJsonStringField(text, "assistant_message");
+  if (!assistantMessage) return null;
+  const state = extractJsonStringField(text, "state");
+  const activePlantContext = extractJsonStringField(text, "active_plant_context");
+  const plantOk = extractJsonPlantOkField(text);
+  const recovered = normalizeResponse(
+    {
+      state,
+      plant_ok: plantOk,
+      active_plant_context: activePlantContext,
+      assistant_message: assistantMessage
+    },
+    meta
+  );
+  return recovered;
+}
+
 function quickPhotoGateMessage() {
   return {
     ok: true,
@@ -273,6 +337,12 @@ app.post("/api/agricoole/analyze", async (req, res) => {
     const raw = await callGemini({ promptText, image });
     const parsed = safeParseJson(raw);
     if (!parsed) {
+      const recovered = recoverFromRawJson(raw, meta);
+      if (recovered) {
+        const finalized = finalizeAnalyzeResponse(recovered);
+        res.json({ ok: true, ...finalized });
+        return;
+      }
       const fallbackText = (raw || "").trim();
       if (looksLikeAnalysis(fallbackText)) {
         res.json({
@@ -331,6 +401,11 @@ app.post("/api/agricoole/chat", async (req, res) => {
     const raw = await callGemini({ promptText, image: image && image.data ? image : null });
     const parsed = safeParseJson(raw);
     if (!parsed) {
+      const recovered = recoverFromRawJson(raw, meta);
+      if (recovered) {
+        res.json({ ok: true, ...recovered });
+        return;
+      }
       res.json({
         ok: true,
         state: "CHAT",

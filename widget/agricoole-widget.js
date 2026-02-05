@@ -1426,7 +1426,13 @@
 
     elements.sendBtn.addEventListener("click", () => {
       const value = elements.textInput.value.trim();
-      if (!value) return;
+      if (!value) {
+        const pending = activeSession ? runtime.pendingImageBySession[activeSession.id] : null;
+        if (pending) {
+          sendAnalyze();
+        }
+        return;
+      }
       elements.textInput.value = "";
       sendChat(value);
     });

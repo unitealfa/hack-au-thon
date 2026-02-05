@@ -36,7 +36,7 @@ interface Theme {
 
 // Config
 const DEFAULT_CONFIG = {
-  apiBaseUrl: 'http://localhost:8787',
+  apiBaseUrl: import.meta.env.VITE_API_URL || 'http://localhost:8787',
   title: 'Agricoole',
   position: 'right' as 'left' | 'right',
   primaryColor: '#3D8B40',
@@ -425,6 +425,19 @@ export function AgricooleWidget() {
       addMessage(activeSession, 'assistant', formatError(err));
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSend = () => {
+    if (!activeSession) return;
+    const value = textInput.trim();
+    if (value) {
+      sendChat(value);
+      setTextInput('');
+      return;
+    }
+    if (pendingImage) {
+      sendAnalyze();
     }
   };
   
@@ -1166,10 +1179,7 @@ export function AgricooleWidget() {
               onKeyDown={e => {
                 if (e.key === 'Enter') {
                   e.preventDefault();
-                  if (textInput.trim()) {
-                    sendChat(textInput.trim());
-                    setTextInput('');
-                  }
+                  handleSend();
                 }
               }}
               disabled={loading || !activeSession}
@@ -1178,12 +1188,9 @@ export function AgricooleWidget() {
               type="button"
               style={styles.sendBtn}
               onClick={() => {
-                if (textInput.trim()) {
-                  sendChat(textInput.trim());
-                  setTextInput('');
-                }
+                handleSend();
               }}
-              disabled={loading || !activeSession}
+              disabled={loading || !activeSession || (!textInput.trim() && !pendingImage)}
             >
               <span style={{ width: '18px', height: '18px' }}>{ICONS.send}</span>
             </button>

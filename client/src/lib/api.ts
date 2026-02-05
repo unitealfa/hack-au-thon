@@ -1,4 +1,6 @@
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8787';
+const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8787')
+  .trim()
+  .replace(/\/$/, '');
 
 export interface User {
   id: number;
