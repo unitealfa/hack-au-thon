@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+﻿import React, { useState, useEffect, useRef, useCallback } from 'react';
 
 // Types
 interface Message {
@@ -299,7 +299,7 @@ export function AgricooleWidget() {
     const msg = err instanceof Error ? err.message : '';
     const lower = msg.toLowerCase();
     if (lower.includes('failed to fetch') || lower.includes('network')) {
-      return 'Serveur indisponible. Réessaie plus tard.';
+      return 'Serveur indisponible. RÃ©essaie plus tard.';
     }
     if (msg) return 'Erreur: ' + msg;
     return 'Une erreur est survenue.';
@@ -353,6 +353,8 @@ export function AgricooleWidget() {
       }
       if (data.state === 'PHOTO_GATE' || data.plant_ok === false) {
         setPendingImages(prev => ({ ...prev, [activeSession.id]: undefined as unknown as PendingImage }));
+        activeSession.pinnedImage = null;
+        activeSession.activePlantContext = '';
       }
       
       if (data.state === 'CHAT' || data.plant_ok === true) {
@@ -478,8 +480,10 @@ export function AgricooleWidget() {
       // Show pinned image in discussion
       addMessage(activeSession, 'user', '', null, { type: 'image', dataUrl: previewUrl });
       
-      // Add notification about pinned image
-      addMessage(activeSession, 'assistant', '📌 Image épinglée comme contexte. Que voulez-vous savoir ?');
+      // Add notification about pinned image only when manual analyze is enabled
+      if (!config.autoAnalyze) {
+        addMessage(activeSession, 'assistant', 'ðŸ“Œ Image Ã©pinglÃ©e comme contexte. Que voulez-vous savoir ?');
+      }
       
       // Save session with pinned image
       setSessions(prev => {
@@ -1120,7 +1124,7 @@ export function AgricooleWidget() {
           
           {/* Actions */}
           <div style={styles.actions}>
-            <button type="button" style={styles.newPlantBtn} onClick={newPlant} title="Épingler une image comme contexte">
+            <button type="button" style={styles.newPlantBtn} onClick={newPlant} title="Ã‰pingler une image comme contexte">
               <span style={{ width: '16px', height: '16px' }}>{ICONS.camera}</span>
             </button>
           </div>
@@ -1140,7 +1144,7 @@ export function AgricooleWidget() {
                 alt="Pinned" 
                 style={{ width: '40px', height: '40px', borderRadius: '8px', objectFit: 'cover' }}
               />
-              <span style={{ flex: 1, fontSize: '12px', color: colors.muted }}>Image épinglée</span>
+              <span style={{ flex: 1, fontSize: '12px', color: colors.muted }}>Image Ã©pinglÃ©e</span>
               <button
                 type="button"
                 onClick={unpinImage}
@@ -1330,3 +1334,4 @@ export function AgricooleWidget() {
 }
 
 export default AgricooleWidget;
+

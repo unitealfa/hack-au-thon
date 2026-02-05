@@ -1260,6 +1260,8 @@
       }
       if (data.state === "PHOTO_GATE" || data.plant_ok === false) {
         runtime.pendingImageBySession[activeSession.id] = null;
+        activeSession.pinnedImage = null;
+        activeSession.activePlantContext = "";
         elements.photoInput.value = "";
       }
       saveSessions(sessions);
@@ -1485,8 +1487,10 @@
       addMessage(activeSession, "user", "", null, { type: "image", dataUrl: previewUrl });
       
       
-      // Add notification to chat
-      addMessage(activeSession, "assistant", "ðŸ“Œ Image Ã©pinglÃ©e comme contexte. Que voulez-vous savoir ?");
+      // Add notification to chat only when manual analyze is enabled
+      if (!config.autoAnalyze) {
+        addMessage(activeSession, "assistant", "ðŸ“Œ Image Ã©pinglÃ©e comme contexte. Que voulez-vous savoir ?");
+      }
       saveSessions(sessions);
       renderAll();
 
@@ -1560,3 +1564,4 @@
     autoInit();
   }
 })();
+

@@ -80,6 +80,7 @@ const SYSTEM_PROMPT = [
   "- The user can change plant by sending a new photo.",
   "",
   "Photo Analysis format (French, short lines):",
+  "Description visuelle: ...",
   "Nom (commun): ...",
   "Nom (scientifique): ...",
   "Variete/cultivar: ...",
@@ -146,6 +147,39 @@ function finalizeAnalyzeResponse(response) {
     return { ...response, plant_ok: true, state: "CHAT" };
   }
   return { ...response, state: "PHOTO_GATE" };
+}
+
+function ensureImageResponse(response, meta) {
+  const hasImage = !!meta?.image_present;
+  if (!hasImage) return response;
+
+  const msg = (response.assistant_message || "").trim();
+  const isDefault = !msg || msg === "Desole, je ne peux pas repondre. Reessaie.";
+  const mentionsPlant = /plante|veget|v[eé]g[eé]t/i.test(msg);
+  const needsPhotoGate =
+    response.plant_ok === false || response.plant_ok === "unknown" || response.state === "PHOTO_GATE";
+
+  if (needsPhotoGate) {
+    if (!mentionsPlant || isDefault) {
+      return {
+        ...response,
+        state: "PHOTO_GATE",
+        assistant_message:
+          "Je ne vois pas clairement une plante ou de la verdure. Envoie une photo nette d une plante (feuilles, tige, fleur) en bonne lumiere."
+      };
+    }
+    return { ...response, state: "PHOTO_GATE" };
+  }
+
+  if (response.plant_ok === true && isDefault) {
+    return {
+      ...response,
+      assistant_message:
+        "Je vois une plante, mais je ne peux pas l identifier. Envoie une photo plus nette (feuilles visibles, bonne lumiere)."
+    };
+  }
+
+  return response;
 }
 
 function buildUserPrompt(meta, userMessage) {
@@ -365,7 +399,8 @@ app.post("/api/agricoole/analyze", async (req, res) => {
     }
     const normalized = normalizeResponse(parsed, meta);
     const finalized = finalizeAnalyzeResponse(normalized);
-    res.json({ ok: true, ...finalized });
+    const ensured = ensureImageResponse(finalized, meta);
+    res.json({ ok: true, ...ensured });
   } catch (err) {
     res.status(500).json({
       ok: false,
@@ -416,7 +451,8 @@ app.post("/api/agricoole/chat", async (req, res) => {
       return;
     }
     const normalized = normalizeResponse(parsed, meta);
-    res.json({ ok: true, ...normalized });
+    const ensured = ensureImageResponse(normalized, meta);
+    res.json({ ok: true, ...ensured });
   } catch (err) {
     res.status(500).json({
       ok: false,
