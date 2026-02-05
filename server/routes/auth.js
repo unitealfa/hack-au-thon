@@ -12,13 +12,31 @@ const SALT_ROUNDS = 10;
  */
 router.post("/register", async (req, res) => {
   try {
-    const { email, password } = req.body;
-    const name = req.body.name || req.body.full_name;
-    const farmName = req.body.farmName || req.body.farm_name;
+    const rawEmail = typeof req.body.email === "string" ? req.body.email.trim() : "";
+    const email = rawEmail;
+    const password = typeof req.body.password === "string" ? req.body.password : "";
+    let name =
+      (typeof req.body.name === "string" && req.body.name) ||
+      (typeof req.body.full_name === "string" && req.body.full_name) ||
+      (typeof req.body.fullName === "string" && req.body.fullName) ||
+      "";
+    name = typeof name === "string" ? name.trim() : "";
+    const farmNameRaw =
+      (typeof req.body.farmName === "string" && req.body.farmName) ||
+      (typeof req.body.farm_name === "string" && req.body.farm_name) ||
+      "";
+    const farmName = typeof farmNameRaw === "string" ? farmNameRaw.trim() : "";
+
+    if (!name && email) {
+      name = email.split("@")[0] || "";
+    }
 
     // Validation
-    if (!email || !password || !name) {
-      return res.status(400).json({ error: "Email, password, and name are required" });
+    if (!email || !password) {
+      return res.status(400).json({ error: "Email and password are required" });
+    }
+    if (!name) {
+      return res.status(400).json({ error: "Name is required" });
     }
 
     if (password.length < 6) {
