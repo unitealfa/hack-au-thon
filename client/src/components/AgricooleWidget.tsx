@@ -17,6 +17,7 @@ interface Session {
   state: 'PHOTO_GATE' | 'CHAT';
   activePlantContext: string;
   lastUpdated: number;
+  pinnedImage?: PendingImage | null;
 }
 
 interface PendingImage {
@@ -38,11 +39,11 @@ const DEFAULT_CONFIG = {
   apiBaseUrl: 'http://localhost:8787',
   title: 'Agricoole',
   position: 'right' as 'left' | 'right',
-  primaryColor: '#10b981',
-  accentColor: '#f59e0b',
-  bgColor: '#0f172a',
-  panelBg: '#1e293b',
-  textColor: '#f1f5f9',
+  primaryColor: '#3D8B40',
+  accentColor: '#8BC34A',
+  bgColor: '#0a1f0c',
+  panelBg: '#122415',
+  textColor: '#e8f5e9',
   autoAnalyze: true,
   maxHistory: 50,
   maxImageMb: 5,
@@ -78,9 +79,10 @@ function newSession(title: string): Session {
     id: 'sess_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
     title,
     history: [],
-    state: 'PHOTO_GATE',
+    state: 'CHAT',
     activePlantContext: '',
     lastUpdated: Date.now(),
+    pinnedImage: null,
   };
 }
 
@@ -235,13 +237,6 @@ export function AgricooleWidget() {
     
     if (savedSessions.length === 0) {
       const firstSession = newSession('Chat 1');
-      firstSession.history.push({
-        role: 'assistant',
-        text: 'Envoie une photo pour commencer.',
-        ts: Date.now(),
-        tag: 'photo_gate_hint',
-        type: 'text',
-      });
       setSessions([firstSession]);
       setActiveSessionIdState(firstSession.id);
       setActiveSessionId(firstSession.id);
@@ -378,23 +373,35 @@ export function AgricooleWidget() {
   
   // Send chat
   const sendChat = async (message: string) => {
-    if (!activeSession || activeSession.state !== 'CHAT') return;
+    if (!activeSession) return;
+    
+    // Ensure session is in CHAT state
+    activeSession.state = 'CHAT';
     
     addMessage(activeSession, 'user', message);
     setLoadingLabel('Envoi...');
     setLoading(true);
     
-    const payload = {
+    // Check for pinned image to include as context
+    const pinnedImg = activeSession.pinnedImage;
+    const hasPinnedImage = !!(pinnedImg && pinnedImg.data);
+    
+    const payload: Record<string, unknown> = {
       session_id: activeSession.id,
       session_title: activeSession.title,
       state: activeSession.state,
-      image_present: false,
+      image_present: hasPinnedImage,
       plant_ok: true,
       active_plant_context: activeSession.activePlantContext || '',
       user_intent: 'GENERAL_CHAT',
       history_summary: summarizeHistory(activeSession),
       user_message: message,
     };
+    
+    // Include pinned image if available
+    if (hasPinnedImage && pinnedImg) {
+      payload.image = { data: pinnedImg.data, mimeType: pinnedImg.mime || 'image/jpeg' };
+    }
     
     try {
       const data = await apiPost('/api/agricoole/chat', payload);
@@ -442,12 +449,24 @@ export function AgricooleWidget() {
       const mimeMatch = /data:(.*?);base64/.exec(meta);
       const mime = file.type || (mimeMatch ? mimeMatch[1] : 'image/jpeg');
       
+      // Store as pending image
       setPendingImages(prev => ({
         ...prev,
         [activeSession.id]: { mime, data: base64, preview: previewUrl },
       }));
       
-      addMessage(activeSession, 'user', '', null, { type: 'image', dataUrl: previewUrl });
+      // Store as pinned image on session
+      activeSession.pinnedImage = { mime, data: base64, preview: previewUrl };
+      
+      // Add notification about pinned image
+      addMessage(activeSession, 'assistant', '📌 Image épinglée comme contexte. Que voulez-vous savoir ?');
+      
+      // Save session with pinned image
+      setSessions(prev => {
+        const updated = prev.map(s => s.id === activeSession.id ? { ...activeSession } : s);
+        saveSessions(updated);
+        return updated;
+      });
       
       if (config.autoAnalyze) {
         // Need to wait for state update, use setTimeout
@@ -465,13 +484,6 @@ export function AgricooleWidget() {
   // Create new session
   const createNewSession = () => {
     const session = newSession(`Chat ${sessions.length + 1}`);
-    session.history.push({
-      role: 'assistant',
-      text: 'Envoie une photo pour commencer.',
-      ts: Date.now(),
-      tag: 'photo_gate_hint',
-      type: 'text',
-    });
     
     setSessions(prev => {
       const updated = [...prev, session];
@@ -490,13 +502,6 @@ export function AgricooleWidget() {
       
       if (filtered.length === 0) {
         const newSess = newSession('Chat 1');
-        newSess.history.push({
-          role: 'assistant',
-          text: 'Envoie une photo pour commencer.',
-          ts: Date.now(),
-          tag: 'photo_gate_hint',
-          type: 'text',
-        });
         saveSessions([newSess]);
         setActiveSessionIdState(newSess.id);
         setActiveSessionId(newSess.id);
@@ -527,34 +532,34 @@ export function AgricooleWidget() {
     setShowDrawer(false);
   };
   
-  // New plant (reset to photo gate)
-  const newPlant = () => {
+  // Unpin image
+  const unpinImage = () => {
     if (!activeSession) return;
-    activeSession.state = 'PHOTO_GATE';
+    activeSession.pinnedImage = null;
     activeSession.activePlantContext = '';
-    
-    const hasHint = activeSession.history.some(m => m.tag === 'photo_gate_hint');
-    if (!hasHint) {
-      activeSession.history.push({
-        role: 'assistant',
-        text: 'Envoie une photo pour commencer.',
-        ts: Date.now(),
-        tag: 'photo_gate_hint',
-        type: 'text',
-      });
-    }
-    
-    setSessions(prev => {
-      const updated = prev.map(s => s.id === activeSession.id ? { ...activeSession } : s);
-      saveSessions(updated);
-      return updated;
-    });
     
     setPendingImages(prev => {
       const copy = { ...prev };
       delete copy[activeSession.id];
       return copy;
     });
+    
+    setSessions(prev => {
+      const updated = prev.map(s => s.id === activeSession.id ? { ...activeSession } : s);
+      saveSessions(updated);
+      return updated;
+    });
+  };
+  
+  // 
+  
+  // New plant (reset to photo gate)
+  const newPlant = () => {
+    if (!activeSession) return;
+    // Trigger the chat photo input to pin an image as context
+    if (chatPhotoInputRef.current) {
+      chatPhotoInputRef.current.click();
+    }
   };
   
   // Save theme
@@ -694,7 +699,7 @@ export function AgricooleWidget() {
     photoSection: {
       padding: '14px 16px',
       borderTop: `1px solid ${colors.border}`,
-      display: inChat ? 'none' : 'flex',
+      display: 'none', // Always hidden - use chat input with pin instead
       flexDirection: 'column',
       gap: '10px',
     },
@@ -719,7 +724,7 @@ export function AgricooleWidget() {
     },
     actions: {
       padding: '0 16px 12px',
-      display: inChat ? 'flex' : 'none',
+      display: activeSession ? 'flex' : 'none',
     },
     newPlantBtn: {
       width: '100%',
@@ -737,7 +742,7 @@ export function AgricooleWidget() {
     },
     inputSection: {
       padding: '12px 16px 16px',
-      display: inChat ? 'flex' : 'none',
+      display: activeSession ? 'flex' : 'none',
       gap: '8px',
       alignItems: 'center',
       borderTop: `1px solid ${colors.border}`,
@@ -1051,7 +1056,7 @@ export function AgricooleWidget() {
             ))}
           </div>
           
-          {/* Photo Section */}
+          {/* Photo Section - Hidden */}
           <div style={styles.photoSection}>
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
               <label style={styles.photoLabel}>
@@ -1066,7 +1071,7 @@ export function AgricooleWidget() {
                 />
                 <span style={{ width: '22px', height: '22px' }}>{ICONS.camera}</span>
               </label>
-              {!config.autoAnalyze && pendingImage && (
+              {pendingImage && !config.autoAnalyze && (
                 <button
                   type="button"
                   style={{
@@ -1095,11 +1100,48 @@ export function AgricooleWidget() {
           
           {/* Actions */}
           <div style={styles.actions}>
-            <button type="button" style={styles.newPlantBtn} onClick={newPlant}>
-              <span style={{ width: '16px', height: '16px' }}>{ICONS.leaf}</span>
-              <span style={{ width: '16px', height: '16px' }}>{ICONS.plus}</span>
+            <button type="button" style={styles.newPlantBtn} onClick={newPlant} title="Épingler une image comme contexte">
+              <span style={{ width: '16px', height: '16px' }}>{ICONS.camera}</span>
             </button>
           </div>
+          
+          {/* Pinned Image Indicator */}
+          {activeSession?.pinnedImage && (
+            <div style={{
+              padding: '8px 16px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              background: 'rgba(16, 185, 129, 0.1)',
+              borderTop: `1px solid ${colors.border}`,
+            }}>
+              <img 
+                src={activeSession.pinnedImage.preview} 
+                alt="Pinned" 
+                style={{ width: '40px', height: '40px', borderRadius: '8px', objectFit: 'cover' }}
+              />
+              <span style={{ flex: 1, fontSize: '12px', color: colors.muted }}>Image épinglée</span>
+              <button
+                type="button"
+                onClick={unpinImage}
+                title="Retirer l'image"
+                style={{
+                  width: '28px',
+                  height: '28px',
+                  border: 'none',
+                  background: 'rgba(239, 68, 68, 0.2)',
+                  color: '#ef4444',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <span style={{ width: '14px', height: '14px' }}>{ICONS.close}</span>
+              </button>
+            </div>
+          )}
           
           {/* Input Section */}
           <div style={styles.inputSection}>
@@ -1130,7 +1172,7 @@ export function AgricooleWidget() {
                   }
                 }
               }}
-              disabled={loading || !inChat}
+              disabled={loading || !activeSession}
             />
             <button
               type="button"
@@ -1141,7 +1183,7 @@ export function AgricooleWidget() {
                   setTextInput('');
                 }
               }}
-              disabled={loading || !inChat}
+              disabled={loading || !activeSession}
             >
               <span style={{ width: '18px', height: '18px' }}>{ICONS.send}</span>
             </button>

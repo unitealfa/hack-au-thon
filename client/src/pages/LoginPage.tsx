@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Sprout } from 'lucide-react';
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -31,13 +30,10 @@ export function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-emerald-100 dark:from-gray-900 dark:to-gray-800 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1 flex flex-col items-center">
-          <div className="flex items-center gap-2 mb-2">
-            <Sprout className="h-8 w-8 text-green-600" />
-            <CardTitle className="text-2xl font-bold">Agricoole</CardTitle>
-          </div>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 via-emerald-50 to-lime-50 dark:from-gray-900 dark:via-green-950 dark:to-gray-800 p-4">
+      <Card className="w-full max-w-md border-primary/20">
+        <CardHeader className="space-y-1 flex flex-col items-center justify-center">
+          <img src="/logo.png" alt="Agricoole" className="h-24 w-auto object-contain" />
           <CardDescription>Sign in to your farm dashboard</CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>

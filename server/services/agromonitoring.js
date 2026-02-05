@@ -504,6 +504,59 @@ export async function getFieldAnalytics(polygonId) {
   }
 }
 
+/**
+ * Fetch satellite imagery for a polygon
+ * @param {string} polygonId - The polygon ID
+ * @param {number} days - Number of days to look back (default 30)
+ * @returns {Promise<Array>} Array of satellite images with metadata
+ */
+export async function fetchSatelliteImages(polygonId, days = 30) {
+  const AGRO_API_KEY = getApiKey();
+  const endpoint = `${AGRO_BASE_URL}/image/search`;
+  
+  // Calculate time range (Unix timestamps)
+  const end = Math.floor(Date.now() / 1000);
+  const start = end - (days * 24 * 60 * 60);
+  
+  const url = `${endpoint}?start=${start}&end=${end}&polyid=${polygonId}&appid=${AGRO_API_KEY}`;
+
+  try {
+    console.log(`Fetching satellite images for polygon ${polygonId} (last ${days} days)...`);
+    
+    const response = await fetch(url);
+    const data = await response.json();
+
+    // Log API call
+    apiLogDb.create(endpoint, "search", response.status, data);
+
+    if (!response.ok) {
+      throw new Error(data.message || `API error: ${response.status}`);
+    }
+
+    // Transform to simplified format with metadata
+    return data.map(img => ({
+      date: new Date(img.dt * 1000).toISOString(),
+      timestamp: img.dt,
+      satellite: img.type,
+      cloudCoverage: img.cl,
+      dataCoverage: img.dc,
+      images: {
+        truecolor: img.image.truecolor,
+        falsecolor: img.image.falsecolor,
+        ndvi: img.image.ndvi,
+        evi: img.image.evi,
+        ndwi: img.image.ndwi
+      },
+      tiles: img.tile,
+      stats: img.stats
+    }));
+  } catch (error) {
+    console.error("Failed to fetch satellite images:", error);
+    apiLogDb.create(endpoint, "search", 0, null, error.message);
+    throw error;
+  }
+}
+
 export default {
   fetchCurrentSoilData,
   generateSimulatedData,
@@ -514,5 +567,6 @@ export default {
   fetchCurrentWeather,
   fetchAccumulatedTemperature,
   fetchAccumulatedPrecipitation,
-  getFieldAnalytics
+  getFieldAnalytics,
+  fetchSatelliteImages
 };

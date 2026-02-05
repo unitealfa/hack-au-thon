@@ -9,7 +9,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Sprout, User, LogOut, LayoutDashboard, MapPin, Sparkles } from 'lucide-react';
+import { User, LogOut, LayoutDashboard, MapPin, Sparkles } from 'lucide-react';
 
 export function AppLayout() {
   const { user, logout } = useAuth();
@@ -22,10 +22,9 @@ export function AppLayout() {
       {/* Top Navigation */}
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container flex h-16 items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Sprout className="h-6 w-6 text-green-600" />
-            <h1 className="text-xl font-bold">Agricoole</h1>
-          </div>
+          <Link to="/dashboard" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+            <img src="/logo.png" alt="Agricoole" className="h-12 w-auto object-contain" />
+          </Link>
 
           <nav className="flex items-center gap-2">
             <Link to="/dashboard">
